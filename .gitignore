@@ -1,0 +1,23 @@
+# .NET build artifacts
+bin/
+obj/
+
+# Frontend
+node_modules/
+dist/
+.vite/
+
+# Environment secrets
+*.env
+.env
+appsettings.Local.json
+appsettings.*.local.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vs/
+.idea/
+*.user
