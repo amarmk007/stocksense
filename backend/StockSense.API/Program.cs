@@ -82,10 +82,14 @@ builder.Services.AddAuthentication(options =>
     options.CallbackPath = "/api/auth/google/callback";
 });
 
-// Hangfire
-builder.Services.AddHangfire(config =>
-    config.UsePostgreSqlStorage(connectionString));
-builder.Services.AddHangfireServer();
+// Hangfire — only enable if we have a database connection
+var hangfireEnabled = !string.IsNullOrEmpty(connectionString);
+if (hangfireEnabled)
+{
+    builder.Services.AddHangfire(config =>
+        config.UsePostgreSqlStorage(connectionString));
+    builder.Services.AddHangfireServer();
+}
 
 // External services
 builder.Services.AddHttpClient("finnhub", c =>
@@ -110,21 +114,25 @@ app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Hangfire dashboard — localhost only in dev, disabled in prod
-if (app.Environment.IsDevelopment())
+if (hangfireEnabled)
 {
-    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    if (app.Environment.IsDevelopment())
     {
-        Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
-    });
+        app.UseHangfireDashboard("/hangfire", new DashboardOptions
+        {
+            Authorization = [new Hangfire.Dashboard.LocalRequestsOnlyAuthorizationFilter()]
+        });
+    }
 }
 
 app.MapGet("/health", () => Results.Ok("healthy"));
 app.MapControllers();
 
-// Schedule daily recommendation job
-var cron = builder.Configuration["HangfireDailyCron"] ?? "0 5 * * *";
-var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
-recurringJobs.AddOrUpdate<DailyRecommendationJob>("daily-recommendations", j => j.ExecuteAsync(), cron);
+if (hangfireEnabled)
+{
+    var cron = builder.Configuration["HangfireDailyCron"] ?? "0 5 * * *";
+    var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+    recurringJobs.AddOrUpdate<DailyRecommendationJob>("daily-recommendations", j => j.ExecuteAsync(), cron);
+}
 
 app.Run();
