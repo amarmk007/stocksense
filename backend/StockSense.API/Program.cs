@@ -124,6 +124,7 @@ app.MapControllers();
 
 // Schedule daily recommendation job
 var cron = builder.Configuration["HangfireDailyCron"] ?? "0 5 * * *";
-RecurringJob.AddOrUpdate<DailyRecommendationJob>("daily-recommendations", j => j.ExecuteAsync(), cron);
+var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+recurringJobs.AddOrUpdate<DailyRecommendationJob>("daily-recommendations", j => j.ExecuteAsync(), cron);
 
 app.Run();
