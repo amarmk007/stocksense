@@ -34,7 +34,7 @@
   Acceptance: New user completes all 4 onboarding screens, taps CTA, sees loading screen, then lands on dashboard once recommendations are ready. A returning user (IsOnboarded = true) skips onboarding entirely.
   Verify: Complete onboarding as a new user — confirm each screen transitions correctly, CTA is disabled until all 4 answered, loading screen appears after POST. Sign out and back in as the same user — confirm onboarding is skipped and dashboard loads directly.
 
-- [ ] **5. External data services — Finnhub + SEC EDGAR**
+- [x] **5. External data services — Finnhub + SEC EDGAR**
   Spec ref: `spec.md > Recommendation Engine > FinnhubService` and `spec.md > Recommendation Engine > EdgarService`
   What to build: `FinnhubService.cs` — three calls per ticker: `GET /quote`, `GET /company-news`, `GET /stock/recommendation`. Auth via `?token={FINNHUB_API_KEY}` query param. Base URL: `https://finnhub.io/api/v1`. Return typed C# objects (quote price, news list, analyst ratings list). `EdgarService.cs` — one call per ticker: `GET https://efts.sec.gov/LATEST/search-index?q="{ticker}"&dateRange=custom&startdt={30 days ago}&enddt={today}&forms=8-K,10-K`. No API key. Extract filing title + URL from response. Register both services in DI in `Program.cs`. Add `FINNHUB_API_KEY` to `appsettings.Development.json` (local dev only — never commit secrets).
   Acceptance: Both services can be called for a test ticker (e.g., "AAPL") and return valid data. Finnhub returns a current quote price, recent news items, and analyst ratings. EDGAR returns at least one recent filing with a title and URL.

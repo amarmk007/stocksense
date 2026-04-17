@@ -1,4 +1,5 @@
 using StockSense.API.Data;
+using StockSense.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -68,6 +69,17 @@ builder.Services.AddAuthentication(options =>
 builder.Services.AddHangfire(config =>
     config.UsePostgreSqlStorage(connectionString));
 builder.Services.AddHangfireServer();
+
+// External services
+builder.Services.AddHttpClient("finnhub", c =>
+    c.BaseAddress = new Uri("https://finnhub.io"));
+builder.Services.AddHttpClient("edgar", c =>
+{
+    c.BaseAddress = new Uri("https://efts.sec.gov");
+    c.DefaultRequestHeaders.Add("User-Agent", "StockSense/1.0 contact@stocksense.dev");
+});
+builder.Services.AddScoped<FinnhubService>();
+builder.Services.AddScoped<EdgarService>();
 
 // Controllers (global [Authorize] applied per-controller; auth endpoints use [AllowAnonymous])
 builder.Services.AddControllers();
