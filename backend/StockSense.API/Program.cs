@@ -1,4 +1,5 @@
 using StockSense.API.Data;
+using StockSense.API.Jobs;
 using StockSense.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -80,6 +81,8 @@ builder.Services.AddHttpClient("edgar", c =>
 });
 builder.Services.AddScoped<FinnhubService>();
 builder.Services.AddScoped<EdgarService>();
+builder.Services.AddScoped<ClaudeService>();
+builder.Services.AddScoped<DailyRecommendationJob>();
 
 // Controllers (global [Authorize] applied per-controller; auth endpoints use [AllowAnonymous])
 builder.Services.AddControllers();
@@ -101,5 +104,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+
+// Schedule daily recommendation job
+var cron = builder.Configuration["HangfireDailyCron"] ?? "0 5 * * *";
+RecurringJob.AddOrUpdate<DailyRecommendationJob>("daily-recommendations", j => j.ExecuteAsync(), cron);
 
 app.Run();
