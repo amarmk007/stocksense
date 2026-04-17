@@ -119,6 +119,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+app.MapGet("/health", () => Results.Ok("healthy"));
 app.MapControllers();
 
 // Schedule daily recommendation job
