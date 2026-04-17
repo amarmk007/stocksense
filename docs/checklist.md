@@ -16,7 +16,7 @@
   Acceptance: `dotnet run` starts the API on localhost with no errors. `npm run dev` starts the React app with no errors. Navigating to the frontend shows a blank page with no console errors.
   Verify: Run both servers and confirm both start without errors. Open the browser to the Vite dev URL and confirm no console errors.
 
-- [ ] **2. Data model + EF Core setup**
+- [x] **2. Data model + EF Core setup**
   Spec ref: `spec.md > Data Model`
   What to build: Create all four EF Core model classes: `User`, `UserProfile`, `RecommendationSet`, `RecommendationItem` with all columns from the spec. Create `AppDbContext` with all four `DbSet<>` properties and relationship configuration. Configure PostgreSQL connection via `DATABASE_URL` env var in `Program.cs`. Run `dotnet ef migrations add InitialCreate` and `dotnet ef database update`. Seed no data.
   Acceptance: All four tables exist in PostgreSQL with correct columns and foreign keys. `dotnet ef migrations list` shows `InitialCreate` as applied.
