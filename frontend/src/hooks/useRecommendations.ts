@@ -1,8 +1,23 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { apiClient } from '../api/client'
+
+export interface RecommendationData {
+  isStale: boolean
+  generatedAt: string
+  recommendations: {
+    ticker: string
+    name: string
+    upsideEstimate: string
+    reasoning: string
+    signals: { analyst: string[]; macro: string[]; market: string[] }
+    sources: { title: string; url: string }[]
+  }[]
+}
 
 export function useRecommendationsStatus(enabled: boolean, onReady: () => void) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const onReadyRef = useRef(onReady)
+  onReadyRef.current = onReady
 
   useEffect(() => {
     if (!enabled) return
@@ -11,25 +26,25 @@ export function useRecommendationsStatus(enabled: boolean, onReady: () => void) 
         const { data } = await apiClient.get<{ status: string }>('/recommendations/status')
         if (data.status === 'ready') {
           clearInterval(intervalRef.current!)
-          onReady()
+          onReadyRef.current()
         }
       } catch {
         // keep polling
       }
     }, 3000)
     return () => clearInterval(intervalRef.current!)
-  }, [enabled, onReady])
+  }, [enabled])
 }
 
 export function useRecommendations() {
-  const [data, setData] = useState<any>(null)
+  const [data, setData] = useState<RecommendationData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    apiClient.get('/recommendations')
+    apiClient.get<RecommendationData>('/recommendations')
       .then(r => setData(r.data))
-      .catch(() => setError('Unable to load recommendations. Please try again.'))
+      .catch(() => setError('Unable to load recommendations.'))
       .finally(() => setLoading(false))
   }, [])
 
