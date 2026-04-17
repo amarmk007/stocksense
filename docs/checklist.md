@@ -22,7 +22,7 @@
   Acceptance: All four tables exist in PostgreSQL with correct columns and foreign keys. `dotnet ef migrations list` shows `InitialCreate` as applied.
   Verify: Connect to the PostgreSQL database (Railway or local) and confirm the four tables exist with correct schema. Run `dotnet ef migrations list` and confirm the migration shows as applied.
 
-- [ ] **3. Authentication — Google OAuth + JWT**
+- [x] **3. Authentication — Google OAuth + JWT**
   Spec ref: `spec.md > Authentication`
   What to build: Backend — `AuthController` with `GET /api/auth/google` (redirect to Google) and `GET /api/auth/google/callback` (upsert user, issue JWT with `IsOnboarded` claim, redirect to React with `#token=...`). Configure `Microsoft.AspNetCore.Authentication.Google` + `JwtBearer` in `Program.cs`. Apply `[Authorize]` globally; mark auth endpoints `[AllowAnonymous]`. Frontend — `Auth.tsx` page (sign-in button → redirect to `/api/auth/google`). `useAuth.ts` hook: extract JWT from URL fragment on callback, store in memory only (React state/context, never localStorage). `App.tsx` route guards: unauthenticated → redirect to Auth; authenticated + not onboarded → redirect to onboarding; authenticated + onboarded → dashboard. Silent re-auth: on page load, if no token in memory, redirect to Google OAuth.
   Acceptance: Clicking "Sign in with Google" completes the OAuth flow and lands the user on the onboarding route. Refreshing the page triggers silent re-auth if the user has an active Google session. A request to `/api/profile` without a JWT returns 401.

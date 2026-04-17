@@ -10,22 +10,30 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+let _token: string | null = null
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setTokenState] = useState<string | null>(null)
   const [isOnboarded, setIsOnboarded] = useState(false)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     const hash = window.location.hash
     if (hash.startsWith('#token=')) {
-      const t = hash.slice(7)
+      const t = decodeURIComponent(hash.slice(7))
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
       setToken(t)
-      window.history.replaceState(null, '', window.location.pathname)
-    } else if (!token) {
-      window.location.href = '/api/auth/google'
+      setReady(true)
+    } else if (_token) {
+      setTokenState(_token)
+      setReady(true)
+    } else {
+      setReady(true)
     }
   }, [])
 
   function setToken(t: string | null) {
+    _token = t
     setTokenState(t)
     setAuthToken(t)
     if (t) {
@@ -35,8 +43,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // ignore malformed token
       }
+    } else {
+      setIsOnboarded(false)
     }
   }
+
+  if (!ready) return null
 
   return createElement(AuthContext.Provider, { value: { token, isOnboarded, setToken, setIsOnboarded } }, children)
 }
