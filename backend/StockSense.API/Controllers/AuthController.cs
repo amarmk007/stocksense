@@ -54,7 +54,7 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
         var token = GenerateJwt(user);
-        return Redirect($"{frontendUrl}#token={token}");
+        return Redirect($"{frontendUrl}?token={token}");
     }
 
     private string GenerateJwt(User user)
