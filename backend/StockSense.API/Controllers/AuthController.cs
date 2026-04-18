@@ -29,7 +29,9 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
     [HttpGet("google/callback")]
     public async Task<IActionResult> GoogleCallback()
     {
-        var frontendUrl = config["CorsOrigin"] ?? "http://localhost:5173";
+        var frontendUrl = Environment.GetEnvironmentVariable("CORS_ORIGIN")
+            ?? config["CorsOrigin"]
+            ?? "http://localhost:5173";
 
         var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         if (!result.Succeeded)
