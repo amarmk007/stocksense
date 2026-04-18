@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,9 +27,20 @@ static string ConvertDatabaseUrl(string url)
 {
     if (!url.StartsWith("postgresql://") && !url.StartsWith("postgres://"))
         return url;
-    var uri = new Uri(url);
-    var userInfo = uri.UserInfo.Split(':');
-    return $"Host={uri.Host};Port={uri.Port};Database={uri.AbsolutePath.TrimStart('/')};Username={userInfo[0]};Password={Uri.UnescapeDataString(userInfo[1])};SSL Mode=Require;Trust Server Certificate=true";
+    var withoutScheme = url[(url.IndexOf("://") + 3)..];
+    var atIdx = withoutScheme.LastIndexOf('@');
+    var userInfo = withoutScheme[..atIdx];
+    var hostPart = withoutScheme[(atIdx + 1)..];
+    var slashIdx = hostPart.IndexOf('/');
+    var hostPort = slashIdx >= 0 ? hostPart[..slashIdx] : hostPart;
+    var database = slashIdx >= 0 ? hostPart[(slashIdx + 1)..] : "postgres";
+    var colonIdx = userInfo.IndexOf(':');
+    var username = userInfo[..colonIdx];
+    var password = Uri.UnescapeDataString(userInfo[(colonIdx + 1)..]);
+    var portIdx = hostPort.LastIndexOf(':');
+    var host = portIdx >= 0 ? hostPort[..portIdx] : hostPort;
+    var port = portIdx >= 0 ? hostPort[(portIdx + 1)..] : "5432";
+    return $"Host={host};Port={port};Database={database};Username={username};Password={password};SSL Mode=Require;Trust Server Certificate=true";
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -59,7 +71,11 @@ builder.Services.AddAuthentication(options =>
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 })
-.AddCookie()
+.AddCookie(options =>
+{
+    options.Cookie.SameSite = SameSiteMode.None;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+})
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -110,6 +126,17 @@ builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
+// Auto-migrate on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
+
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
