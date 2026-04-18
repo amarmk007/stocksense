@@ -18,12 +18,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    const hash = window.location.hash
-    console.log('[useAuth] hash:', hash, 'pathname:', window.location.pathname)
-    if (hash.startsWith('#token=')) {
-      const t = decodeURIComponent(hash.slice(7))
-      console.log('[useAuth] token found, length:', t.length)
-      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    const params = new URLSearchParams(window.location.search)
+    const t = params.get('token')
+    if (t) {
+      window.history.replaceState(null, '', window.location.pathname)
       setToken(t)
       setReady(true)
     } else if (_token) {
