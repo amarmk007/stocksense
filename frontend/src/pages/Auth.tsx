@@ -1,3 +1,7 @@
+const googleAuthUrl = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/auth/google`
+  : '/api/auth/google'
+
 export default function Auth() {
   const params = new URLSearchParams(window.location.search)
   const error = params.get('error')
@@ -15,7 +19,7 @@ export default function Auth() {
           </p>
         )}
         <a
-          href="/api/auth/google"
+          href={googleAuthUrl}
           className="inline-flex items-center gap-3 bg-white text-gray-900 font-semibold px-6 py-3 rounded-xl hover:bg-gray-100 transition shadow-lg"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
