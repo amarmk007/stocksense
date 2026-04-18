@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  if (!ready) return null
+  if (!ready) return createElement('div', { className: 'min-h-screen bg-gray-950' })
 
   return createElement(AuthContext.Provider, { value: { token, isOnboarded, setToken, setIsOnboarded } }, children)
 }
