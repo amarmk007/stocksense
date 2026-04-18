@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useRecommendations } from '../hooks/useRecommendations'
 import RecommendationCard from '../components/RecommendationCard'
