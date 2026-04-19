@@ -92,7 +92,7 @@ builder.Services.AddHttpClient("finnhub", c =>
 builder.Services.AddHttpClient("edgar", c =>
 {
     c.BaseAddress = new Uri("https://efts.sec.gov");
-    c.DefaultRequestHeaders.Add("User-Agent", "StockSense/1.0 contact@stocksense.dev");
+    c.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "StockSense/1.0 (contact@stocksense.dev)");
 });
 builder.Services.AddScoped<FinnhubService>();
 builder.Services.AddScoped<EdgarService>();
