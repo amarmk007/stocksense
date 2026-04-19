@@ -1,27 +1,58 @@
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
-using Anthropic;
 using StockSense.API.DTOs;
 using StockSense.API.Models;
 
 namespace StockSense.API.Services;
 
-public class ClaudeService(IConfiguration config)
+public class ClaudeService(IHttpClientFactory httpFactory, IConfiguration config, ILogger<ClaudeService> logger)
 {
-    private AnthropicApi CreateClient()
+    private const string Model = "claude-sonnet-4-6";
+
+    private HttpClient CreateClient()
     {
         var key = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
             ?? config["AnthropicApiKey"]
             ?? throw new InvalidOperationException("ANTHROPIC_API_KEY not set");
-        var api = new AnthropicApi();
-        api.AuthorizeUsingApiKey(key);
-        api.SetHeaders();
-        return api;
+
+        var http = httpFactory.CreateClient();
+        http.BaseAddress = new Uri("https://api.anthropic.com");
+        http.DefaultRequestHeaders.Add("x-api-key", key);
+        http.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        return http;
+    }
+
+    private async Task<string> CallClaude(string system, string userPrompt, int maxTokens)
+    {
+        var http = CreateClient();
+
+        var body = JsonSerializer.Serialize(new
+        {
+            model = Model,
+            max_tokens = maxTokens,
+            system,
+            messages = new[] { new { role = "user", content = userPrompt } }
+        });
+
+        var response = await http.PostAsync("/v1/messages",
+            new StringContent(body, Encoding.UTF8, "application/json"));
+
+        var raw = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+            throw new Exception($"Anthropic API error {(int)response.StatusCode}: {raw}");
+
+        var doc = JsonDocument.Parse(raw);
+        return doc.RootElement
+            .GetProperty("content")[0]
+            .GetProperty("text")
+            .GetString() ?? "";
     }
 
     public async Task<List<string>> SelectTickersAsync(UserProfile profile)
     {
-        var api = CreateClient();
-
         var prompt = $"""
             User profile:
             - Investment amount: ${profile.InvestmentAmount:N0}
@@ -34,20 +65,22 @@ public class ClaudeService(IConfiguration config)
             Example: ["AAPL","MSFT","NVDA"]
             """;
 
-        var response = await api.CreateMessageAsync(
-            model: "claude-sonnet-4-6",
-            messages: [prompt],
-            maxTokens: 200,
-            system: "You are a stock research analyst. Only recommend US-listed NYSE/NASDAQ stocks. Return ONLY a JSON array.");
+        var text = await CallClaude(
+            "You are a stock research analyst. Only recommend US-listed NYSE/NASDAQ stocks. Return ONLY a JSON array.",
+            prompt,
+            200);
 
-        var text = ExtractText(response);
+        logger.LogInformation("SelectTickers raw response: {Text}", text);
 
         var start = text.IndexOf('[');
         var end = text.LastIndexOf(']');
-        if (start < 0 || end < 0) return ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"];
+        if (start < 0 || end < 0)
+        {
+            logger.LogWarning("Could not parse tickers from response, using defaults");
+            return ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"];
+        }
 
-        try { return JsonSerializer.Deserialize<List<string>>(text[start..(end + 1)]) ?? []; }
-        catch { return ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN"]; }
+        return JsonSerializer.Deserialize<List<string>>(text[start..(end + 1)]) ?? [];
     }
 
     public async Task<List<RecommendationItemDto>> GenerateRecommendationsAsync(
@@ -55,8 +88,6 @@ public class ClaudeService(IConfiguration config)
         List<FinnhubTickerData> marketData,
         Dictionary<string, List<EdgarFiling>> filings)
     {
-        var api = CreateClient();
-
         var experiencePrompt = profile.ExperienceLevel == "Experienced"
             ? "Use precise financial terminology. Include data density — P/E ratios, price targets, volume context."
             : "Explain each signal in plain English. Avoid jargon. Prioritize the 'why this matters to me' angle.";
@@ -76,9 +107,7 @@ public class ClaudeService(IConfiguration config)
             return $"{d.Ticker}: price=${d.Quote.CurrentPrice:F2} | {ratingSummary} | news: {newsSummary} | SEC: {edgarSummary}";
         }));
 
-        var jsonSchema = """
-            {"recommendations":[{"ticker":"AAPL","name":"Apple Inc.","upside_estimate":"+15%","reasoning":"...","signals":{"analyst":["..."],"macro":["..."],"market":["..."]},"sources":[{"title":"...","url":"..."}]}]}
-            """;
+        var jsonSchema = """{"recommendations":[{"ticker":"AAPL","name":"Apple Inc.","upside_estimate":"+15%","reasoning":"...","signals":{"analyst":["..."],"macro":["..."],"market":["..."]},"sources":[{"title":"...","url":"..."}]}]}""";
 
         var prompt = $"""
             User profile: ${profile.InvestmentAmount:N0}, {profile.TimelineYears}yr timeline, {profile.ExpectedReturnPct}% target, {profile.ExperienceLevel}.
@@ -91,52 +120,40 @@ public class ClaudeService(IConfiguration config)
             {jsonSchema}
             """;
 
-        var response = await api.CreateMessageAsync(
-            model: "claude-sonnet-4-6",
-            messages: [prompt],
-            maxTokens: 8000,
-            system: "You are a stock research analyst. Return ONLY valid JSON matching the requested format. No markdown, no explanation.");
+        var text = await CallClaude(
+            "You are a stock research analyst. Return ONLY valid JSON matching the requested format. No markdown, no explanation.",
+            prompt,
+            8000);
 
-        var text = ExtractText(response);
+        logger.LogInformation("GenerateRecommendations raw response length: {Len}", text.Length);
 
         var start = text.IndexOf('{');
         var end = text.LastIndexOf('}');
-        if (start < 0 || end < 0) return [];
-
-        try
+        if (start < 0 || end < 0)
         {
-            var json = text[start..(end + 1)];
-            var parsed = JsonSerializer.Deserialize<JsonElement>(json);
-            var recs = parsed.GetProperty("recommendations");
-
-            return recs.EnumerateArray().Select(r =>
-            {
-                var signals = r.GetProperty("signals");
-                return new RecommendationItemDto(
-                    r.GetProperty("ticker").GetString() ?? "",
-                    r.GetProperty("name").GetString() ?? "",
-                    r.GetProperty("upside_estimate").GetString() ?? "",
-                    r.GetProperty("reasoning").GetString() ?? "",
-                    new SignalsDto(
-                        signals.GetProperty("analyst").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
-                        signals.GetProperty("macro").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
-                        signals.GetProperty("market").EnumerateArray().Select(x => x.GetString() ?? "").ToList()),
-                    r.GetProperty("sources").EnumerateArray().Select(s => new SourceDto(
-                        s.GetProperty("title").GetString() ?? "",
-                        s.GetProperty("url").GetString() ?? "")).ToList());
-            }).ToList();
+            logger.LogError("No JSON object found in Claude response: {Text}", text[..Math.Min(500, text.Length)]);
+            return [];
         }
-        catch { return []; }
-    }
 
-    private static string ExtractText(Anthropic.Message response)
-    {
-        if (response.Content.IsValue1)
-            return response.Content.Value1 ?? "";
-        var blocks = response.Content.Value2;
-        if (blocks == null) return "";
-        foreach (var block in blocks)
-            if (block.IsText) return block.Text?.Text ?? "";
-        return "";
+        var json = text[start..(end + 1)];
+        var parsed = JsonDocument.Parse(json);
+        var recs = parsed.RootElement.GetProperty("recommendations");
+
+        return recs.EnumerateArray().Select(r =>
+        {
+            var signals = r.GetProperty("signals");
+            return new RecommendationItemDto(
+                r.GetProperty("ticker").GetString() ?? "",
+                r.GetProperty("name").GetString() ?? "",
+                r.GetProperty("upside_estimate").GetString() ?? "",
+                r.GetProperty("reasoning").GetString() ?? "",
+                new SignalsDto(
+                    signals.GetProperty("analyst").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
+                    signals.GetProperty("macro").EnumerateArray().Select(x => x.GetString() ?? "").ToList(),
+                    signals.GetProperty("market").EnumerateArray().Select(x => x.GetString() ?? "").ToList()),
+                r.GetProperty("sources").EnumerateArray().Select(s => new SourceDto(
+                    s.GetProperty("title").GetString() ?? "",
+                    s.GetProperty("url").GetString() ?? "")).ToList());
+        }).ToList();
     }
 }
