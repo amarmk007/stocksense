@@ -3,12 +3,10 @@ using StockSense.API.Jobs;
 using StockSense.API.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Hangfire;
 using Hangfire.PostgreSql;
-using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -66,17 +64,7 @@ var jwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET")
     ?? builder.Configuration["JwtSecret"]
     ?? "dev-secret-change-in-production-min-32-chars";
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-})
-.AddCookie(options =>
-{
-    options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
-})
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 .AddJwtBearer(options =>
 {
     options.TokenValidationParameters = new TokenValidationParameters
@@ -87,19 +75,6 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = false,
         ClockSkew = TimeSpan.Zero
     };
-})
-.AddGoogle(options =>
-{
-    options.ClientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID")
-        ?? builder.Configuration["GoogleClientId"]
-        ?? "placeholder";
-    options.ClientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET")
-        ?? builder.Configuration["GoogleClientSecret"]
-        ?? "placeholder";
-    options.CallbackPath = "/api/auth/google/callback";
-    options.CorrelationCookie.SameSite = SameSiteMode.None;
-    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.CorrelationCookie.HttpOnly = true;
 });
 
 // Hangfire — only enable if we have a database connection
@@ -123,10 +98,6 @@ builder.Services.AddScoped<FinnhubService>();
 builder.Services.AddScoped<EdgarService>();
 builder.Services.AddScoped<ClaudeService>();
 builder.Services.AddScoped<DailyRecommendationJob>();
-
-// Data Protection — persist keys to PostgreSQL so they survive container restarts
-builder.Services.AddDataProtection()
-    .PersistKeysToDbContext<AppDbContext>();
 
 // Controllers (global [Authorize] applied per-controller; auth endpoints use [AllowAnonymous])
 builder.Services.AddControllers();
