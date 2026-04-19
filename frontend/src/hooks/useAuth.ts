@@ -24,10 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.history.replaceState(null, '', window.location.pathname)
       setToken(t)
       setReady(true)
-    } else if (_token) {
-      setTokenState(_token)
-      setReady(true)
     } else {
+      const stored = _token ?? localStorage.getItem('auth_token')
+      if (stored) setToken(stored)
       setReady(true)
     }
   }, [])
@@ -36,6 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     _token = t
     setTokenState(t)
     setAuthToken(t)
+    if (t) localStorage.setItem('auth_token', t)
+    else localStorage.removeItem('auth_token')
     if (t) {
       try {
         const payload = JSON.parse(atob(t.split('.')[1]))
