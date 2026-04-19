@@ -39,14 +39,52 @@ export function useRecommendationsStatus(enabled: boolean, onReady: () => void) 
 export function useRecommendations() {
   const [data, setData] = useState<RecommendationData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    apiClient.get<RecommendationData>('/recommendations')
-      .then(r => setData(r.data))
-      .catch(() => setError('Unable to load recommendations.'))
-      .finally(() => setLoading(false))
+    let cancelled = false
+
+    async function load() {
+      try {
+        const r = await apiClient.get<RecommendationData>('/recommendations')
+        if (!cancelled) setData(r.data)
+      } catch (err: any) {
+        if (cancelled) return
+        if (err?.response?.status === 404) {
+          // No recommendations yet — trigger generation and poll
+          setGenerating(true)
+          try {
+            await apiClient.post('/recommendations/generate', {})
+          } catch {
+            // ignore if already generating
+          }
+          const interval = setInterval(async () => {
+            try {
+              const { data: status } = await apiClient.get<{ status: string }>('/recommendations/status')
+              if (status.status === 'ready') {
+                clearInterval(interval)
+                const r = await apiClient.get<RecommendationData>('/recommendations')
+                if (!cancelled) {
+                  setData(r.data)
+                  setGenerating(false)
+                }
+              }
+            } catch {
+              // keep polling
+            }
+          }, 3000)
+          return
+        }
+        setError('Unable to load recommendations.')
+      } finally {
+        if (!cancelled && !generating) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
   }, [])
 
-  return { data, loading, error }
+  return { data, loading: loading || generating, error }
 }

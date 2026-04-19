@@ -8,8 +8,10 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center gap-4">
         <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-white text-lg font-medium">Analyzing markets for you...</p>
+        <p className="text-gray-500 text-sm">This takes about 20–30 seconds</p>
       </div>
     )
   }
