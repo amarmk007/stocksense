@@ -33,8 +33,16 @@ public class DailyRecommendationJob(
         }
 
         logger.LogInformation("GenerateForUserAsync: calling ProcessUserAsync for {UserId}", userId);
-        await ProcessUserAsync(user);
-        logger.LogInformation("GenerateForUserAsync: done for {UserId}", userId);
+        try
+        {
+            await ProcessUserAsync(user);
+            logger.LogInformation("GenerateForUserAsync: done for {UserId}", userId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogInformation("GenerateForUserAsync FAILED for {UserId}: {Type} - {Message}", userId, ex.GetType().Name, ex.Message);
+            throw;
+        }
     }
 
     public async Task ExecuteAsync()
