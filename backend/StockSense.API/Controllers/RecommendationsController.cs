@@ -1,19 +1,29 @@
 using System.Security.Claims;
+using Hangfire;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using StockSense.API.Data;
 using StockSense.API.DTOs;
+using StockSense.API.Jobs;
 
 namespace StockSense.API.Controllers;
 
 [ApiController]
 [Route("api/recommendations")]
 [Authorize]
-public class RecommendationsController(AppDbContext db) : ControllerBase
+public class RecommendationsController(AppDbContext db, IBackgroundJobClient jobs) : ControllerBase
 {
     private Guid? UserId => Guid.TryParse(
         User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
+
+    [HttpPost("generate")]
+    public IActionResult Generate()
+    {
+        if (UserId is not Guid userId) return Unauthorized();
+        jobs.Enqueue<DailyRecommendationJob>(j => j.GenerateForUserAsync(userId));
+        return Accepted();
+    }
 
     [HttpGet]
     public async Task<IActionResult> Get()

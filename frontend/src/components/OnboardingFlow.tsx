@@ -49,6 +49,7 @@ export default function OnboardingFlow() {
         expectedReturnPct: returnPct,
         experienceLevel: experience,
       })
+      await apiClient.post('/recommendations/generate', {})
       setIsOnboarded(true)
       setLoading(false)
       setPolling(true)

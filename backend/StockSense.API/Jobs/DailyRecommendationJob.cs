@@ -13,6 +13,16 @@ public class DailyRecommendationJob(
     EdgarService edgar,
     ILogger<DailyRecommendationJob> logger)
 {
+    public async Task GenerateForUserAsync(Guid userId)
+    {
+        var user = await db.Users
+            .Include(u => u.Profile)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user?.Profile == null) return;
+        await ProcessUserAsync(user);
+    }
+
     public async Task ExecuteAsync()
     {
         var users = await db.Users
