@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -97,7 +98,7 @@ builder.Services.AddAuthentication(options =>
         ?? "placeholder";
     options.CallbackPath = "/api/auth/google/callback";
     options.CorrelationCookie.SameSite = SameSiteMode.None;
-    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
     options.CorrelationCookie.HttpOnly = true;
 });
 
@@ -122,6 +123,10 @@ builder.Services.AddScoped<FinnhubService>();
 builder.Services.AddScoped<EdgarService>();
 builder.Services.AddScoped<ClaudeService>();
 builder.Services.AddScoped<DailyRecommendationJob>();
+
+// Data Protection — persist keys to PostgreSQL so they survive container restarts
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<AppDbContext>();
 
 // Controllers (global [Authorize] applied per-controller; auth endpoints use [AllowAnonymous])
 builder.Services.AddControllers();
