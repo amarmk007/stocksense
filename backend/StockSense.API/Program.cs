@@ -96,6 +96,9 @@ builder.Services.AddAuthentication(options =>
         ?? builder.Configuration["GoogleClientSecret"]
         ?? "placeholder";
     options.CallbackPath = "/api/auth/google/callback";
+    options.CorrelationCookie.SameSite = SameSiteMode.None;
+    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.CorrelationCookie.HttpOnly = true;
 });
 
 // Hangfire — only enable if we have a database connection
