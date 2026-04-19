@@ -15,12 +15,26 @@ public class DailyRecommendationJob(
 {
     public async Task GenerateForUserAsync(Guid userId)
     {
+        logger.LogInformation("GenerateForUserAsync start: userId={UserId}", userId);
+
         var user = await db.Users
             .Include(u => u.Profile)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
-        if (user?.Profile == null) return;
+        if (user == null)
+        {
+            logger.LogWarning("GenerateForUserAsync: user {UserId} not found", userId);
+            return;
+        }
+        if (user.Profile == null)
+        {
+            logger.LogWarning("GenerateForUserAsync: user {UserId} has no profile", userId);
+            return;
+        }
+
+        logger.LogInformation("GenerateForUserAsync: calling ProcessUserAsync for {UserId}", userId);
         await ProcessUserAsync(user);
+        logger.LogInformation("GenerateForUserAsync: done for {UserId}", userId);
     }
 
     public async Task ExecuteAsync()
