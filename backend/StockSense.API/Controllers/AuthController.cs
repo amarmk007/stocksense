@@ -21,7 +21,8 @@ public class AuthController(AppDbContext db, IConfiguration config) : Controller
     [HttpGet("google")]
     public IActionResult GoogleLogin()
     {
-        var redirectUrl = Url.Action(nameof(GoogleCallback), "Auth");
+        var host = Request.Host.Value;
+        var redirectUrl = $"https://{host}/api/auth/google/callback";
         var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
         return Challenge(properties, GoogleDefaults.AuthenticationScheme);
     }
