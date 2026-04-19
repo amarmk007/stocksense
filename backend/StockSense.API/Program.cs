@@ -74,7 +74,7 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(options =>
 {
     options.Cookie.SameSite = SameSiteMode.None;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
 })
 .AddJwtBearer(options =>
 {
@@ -97,7 +97,7 @@ builder.Services.AddAuthentication(options =>
         ?? "placeholder";
     options.CallbackPath = "/api/auth/google/callback";
     options.CorrelationCookie.SameSite = SameSiteMode.None;
-    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     options.CorrelationCookie.HttpOnly = true;
 });
 
