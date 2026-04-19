@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 COPY backend/StockSense.API/StockSense.API.csproj backend/StockSense.API/
-RUN dotnet restore backend/StockSense.API/StockSense.API.csproj
+RUN dotnet restore backend/StockSense.API/StockSense.API.csproj --no-cache
 COPY . .
 RUN dotnet publish backend/StockSense.API/StockSense.API.csproj -c Release -o /app/publish
 
