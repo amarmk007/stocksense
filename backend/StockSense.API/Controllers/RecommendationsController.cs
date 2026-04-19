@@ -12,7 +12,7 @@ namespace StockSense.API.Controllers;
 [ApiController]
 [Route("api/recommendations")]
 [Authorize]
-public class RecommendationsController(AppDbContext db, IBackgroundJobClient jobs) : ControllerBase
+public class RecommendationsController(AppDbContext db, IBackgroundJobClient jobs, DailyRecommendationJob job) : ControllerBase
 {
     private Guid? UserId => Guid.TryParse(
         User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : null;
@@ -23,6 +23,21 @@ public class RecommendationsController(AppDbContext db, IBackgroundJobClient job
         if (UserId is not Guid userId) return Unauthorized();
         jobs.Enqueue<DailyRecommendationJob>(j => j.GenerateForUserAsync(userId));
         return Accepted();
+    }
+
+    [HttpPost("generate-sync")]
+    public async Task<IActionResult> GenerateSync()
+    {
+        if (UserId is not Guid userId) return Unauthorized();
+        try
+        {
+            await job.GenerateForUserAsync(userId);
+            return Ok(new { success = true });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = ex.GetType().Name, message = ex.Message, inner = ex.InnerException?.Message });
+        }
     }
 
     [HttpGet]
